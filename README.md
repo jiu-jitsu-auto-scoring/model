@@ -8,7 +8,7 @@
 ```
 .
 ├── doc         < documentation, latex source and compiled PDFs
-├── README.md
+├── README.md   < this file
 └── src         < source code, jupyter notebooks and python files
 ```
 
