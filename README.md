@@ -1,4 +1,4 @@
-# Jiu-Jitsu Match Auto Scoring
+# Jiu-Jitsu Auto Scoring
 *This README is a **WIP***
 
 #### Contributors
