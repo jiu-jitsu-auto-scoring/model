@@ -1,3 +1,6 @@
 [submodule "src/modules/ViTPose"]
 	path = src/modules/ViTPose
 	url = https://github.com/ViTAE-Transformer/ViTPose.git
+[submodule "src/modules/Deformable-DETR"]
+	path = src/modules/Deformable-DETR
+	url = https://github.com/fundamentalvision/Deformable-DETR.git
