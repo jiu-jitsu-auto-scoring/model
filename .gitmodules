@@ -4,3 +4,6 @@
 [submodule "src/modules/Deformable-DETR"]
 	path = src/modules/Deformable-DETR
 	url = https://github.com/fundamentalvision/Deformable-DETR.git
+[submodule "src/modules/PCT"]
+	path = src/modules/PCT
+	url = https://github.com/Gengzigang/PCT.git
