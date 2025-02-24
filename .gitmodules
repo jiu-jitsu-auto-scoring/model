@@ -7,3 +7,6 @@
 [submodule "src/modules/PCT"]
 	path = src/modules/PCT
 	url = https://github.com/Gengzigang/PCT.git
+[submodule "src/modules/ValterTracking"]
+	path = src/modules/ValterTracking
+	url = https://github.com/ValterH/automatic-positions-detection-and-scoring-in-jiu-jitsu.git
