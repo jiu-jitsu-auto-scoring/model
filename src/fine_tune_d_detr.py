@@ -90,7 +90,7 @@ def load_bbox(example):
     example["bbox"] = np.load(example["bbox_path"], allow_pickle=True)
     return example
 
-def load_dataset_from_directory(data_dir, split="train"):
+def load_dataset_paths_from_directory(data_dir, split="train"):
     image_dir = os.path.join(data_dir, "exo")
     bbox_dir = os.path.join(data_dir, "processed_data", "bbox")
 
@@ -128,7 +128,8 @@ def create_dataset(data_dir, split="train"):
             "img_path": image_paths,
             "bbox_path": bbox_paths,
         }
-
+    
+    print(f"Creating dataset from {len(image_paths)} images and {len(bbox_paths)} bounding boxes")
     dataset = Dataset.from_dict(dataset_dict).map(
             load_image,
             num_proc=16,
@@ -141,70 +142,72 @@ def create_dataset(data_dir, split="train"):
 
     return dataset
 
-print("Loading dataset...")
-
 # Set dataset cache directory
 os.environ["HF_DATASETS_CACHE"] = "/virtual/poncema2/datasets/.cache"
 
-train_dataset = create_dataset(os.path.join(DATASET_DIR, "01_hugging", "001_hugging"), split="train")
-test_dataset = create_dataset(os.path.join(DATASET_DIR, "01_hugging", "002_hugging"), split="test")
+#train_dataset = create_dataset(os.path.join(DATASET_DIR, "01_hugging", "001_hugging"), split="train")
+#test_dataset = create_dataset(os.path.join(DATASET_DIR, "01_hugging", "002_hugging"), split="test")
 
-dataset = DatasetDict({
-    "train": train_dataset,
-    "test": test_dataset
-})
+train_image_paths, train_bbox_paths = load_dataset_paths_from_directory(os.path.join(DATASET_DIR, "01_hugging", "001_hugging"), split="train")
+test_image_paths, test_bbox_paths = load_dataset_paths_from_directory(os.path.join(DATASET_DIR, "01_hugging", "002_hugging"), split="test")
 
-print(f"Dataset loaded: {dataset}")
+# datset generator
+def harmony4d_generator(image_paths, bbox_paths, transform=None):
+    for img_path, bbox_path in zip(image_paths, bbox_paths):
+        img = Image.open(img_path)
+        bbox = np.load(bbox_path, allow_pickle=True)
+        if transform:
+            img = transform(img)
 
-print(f"Keys in the dataset: {dataset['train'].column_names}")
+        img = transforms.ToTensor()(img)
+        # The bboxes are stored like {"aria01" : [x1, y1, x2, y2], "aria02": [x1, y1, x2, y2], ...}
+        # The model expects a tensor
+        bbox = torch.tensor(list(bbox.values()), dtype=torch.float32)
+        yield {"pixel_values": img, "labels": bbox}
+
+# Define transform
+transform = transforms.Compose([
+    transforms.Resize(1080),
+    # TODO: Add more transforms if necessary
+])
+
+# Create iterable datasets
+train_dataset = IterableDataset.from_generator(harmony4d_generator, gen_kwargs={"image_paths": train_image_paths, "bbox_paths": train_bbox_paths, "transform": transform})
+test_dataset = IterableDataset.from_generator(harmony4d_generator, gen_kwargs={"image_paths": test_image_paths, "bbox_paths": test_bbox_paths, "transform": transform})
+
+# Max steps for each dataset (needed for Trainer)
+train_dataset_max_steps = len(train_image_paths)
+test_dataset_max_steps = len(test_image_paths)
+
+print("Loaded datasets")
+print(f"Train dataset: {train_dataset}")
+print(f"Test dataset: {test_dataset}")
 
 # preprocess function
 # -> given an example, turn the image into a PyTorch tensor
 # -> additionally, turn the bounding boxes into a PyTorch tensor
 def preprocess(batch):
-    batch["pixel_values"] = [transforms.ToTensor()(img).to(device) for img in batch["image"]]
+    batch["pixel_values"] = [transforms.ToTensor()(img) for img in batch["image"]]
     batch["labels"] = [
-            torch.tensor(list(bboxes.values()), dtype=torch.float32).to(device)
+            torch.tensor(list(bboxes.values()), dtype=torch.float32)
             for bbox_list in batch["bbox"]
             for bboxes in bbox_list
             ]
     return batch
 
-print("Preprocessing dataset...")
-
-train_dataset = dataset["train"].map(
-        preprocess, 
-        remove_columns=["image", "bbox"],
-        batched=True,
-        batch_size=8,
-    )
-
-eval_dataset = dataset["test"].map(
-        preprocess, 
-        remove_columns=["image", "bbox"],
-        batched=True,
-        batch_size=8,
-    )
-
-# Create DataLoader with multiple workers
-train_dataloader = DataLoader(
-    train_dataset,
-    batch_size=8,
-    shuffle=True,
-    num_workers=4,  # Use multiple CPU threads
-    pin_memory=True  # Speeds up CPU-GPU transfer
-)
-
 # Define training arguments
 training_args = TrainingArguments(
     output_dir="./results",
-    evaluation_strategy="epoch",
+    evaluation_strategy="steps",
+    eval_steps=500,
+    save_steps=500,
     per_device_train_batch_size=8,
     per_device_eval_batch_size=8,
     num_train_epochs=3,
     save_strategy="epoch",
     logging_dir="./logs",
     logging_steps=10,
+    max_steps=train_dataset_max_steps,
 )
 
 # Load Deformable DETR model from Hugging Face Hub
@@ -215,7 +218,7 @@ trainer = Trainer(
     model=model.to(device),  # Move model to GPU
     args=training_args,
     train_dataset=train_dataset,
-    eval_dataset=eval_dataset,
+    eval_dataset=test_dataset,
     data_collator=default_data_collator,
 )
 
