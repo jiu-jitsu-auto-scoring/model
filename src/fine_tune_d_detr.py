@@ -119,28 +119,28 @@ def load_dataset_paths_from_directory(data_dir, split="train"):
     return image_paths, bbox_paths
 
 # Convert the loaded data into a Hugging Face Dataset
-def create_dataset(data_dir, split="train"):
-    image_paths, bbox_paths = load_dataset_from_directory(data_dir, split=split)
-
-    # Create a dictionary with lazily-loaded image and bbox data
-
-    dataset_dict = {
-            "img_path": image_paths,
-            "bbox_path": bbox_paths,
-        }
-    
-    print(f"Creating dataset from {len(image_paths)} images and {len(bbox_paths)} bounding boxes")
-    dataset = Dataset.from_dict(dataset_dict).map(
-            load_image,
-            num_proc=16,
-            remove_columns=["img_path"]
-            ).map(
-                    load_bbox,
-                    remove_columns=["bbox_path"],
-                    num_proc=16
-                    )
-
-    return dataset
+#def create_dataset(data_dir, split="train"):
+#    image_paths, bbox_paths = load_dataset_paths_from_directory(data_dir, split=split)
+#
+#    # Create a dictionary with lazily-loaded image and bbox data
+#
+#    dataset_dict = {
+#            "img_path": image_paths,
+#            "bbox_path": bbox_paths,
+#        }
+#    
+#    print(f"Creating dataset from {len(image_paths)} images and {len(bbox_paths)} bounding boxes")
+#    dataset = Dataset.from_dict(dataset_dict).map(
+#            load_image,
+#            num_proc=16,
+#            remove_columns=["img_path"]
+#            ).map(
+#                    load_bbox,
+#                    remove_columns=["bbox_path"],
+#                    num_proc=16
+#                    )
+#
+#    return dataset
 
 # Set dataset cache directory
 os.environ["HF_DATASETS_CACHE"] = "/virtual/poncema2/datasets/.cache"
